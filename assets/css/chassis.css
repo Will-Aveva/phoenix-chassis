@@ -1,0 +1,288 @@
+/* ==========================================================================
+   Chassis — Layout Shell Stylesheet
+   ==========================================================================
+   All visual properties use var(--chassis-*) custom properties.
+   Zero hard-coded aesthetic values (INV-6.1).
+   Structural CSS only for fixed properties (INV-6.3).
+   ========================================================================== */
+
+/* ---------------------------------------------------------------------------
+   Shell
+   --------------------------------------------------------------------------- */
+
+.chassis-shell {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--chassis-shell-bg);
+}
+
+/* ---------------------------------------------------------------------------
+   Division (spatial split)
+   --------------------------------------------------------------------------- */
+
+.chassis-division {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ---------------------------------------------------------------------------
+   Stack (tabbed group)
+   --------------------------------------------------------------------------- */
+
+.chassis-stack {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  background: var(--chassis-slot-bg);
+  border: 1px solid var(--chassis-slot-border);
+}
+
+/* ---------------------------------------------------------------------------
+   Tab Bar
+   --------------------------------------------------------------------------- */
+
+.chassis-tab-bar {
+  display: flex;
+  align-items: center;
+  height: var(--chassis-tab-height, 2rem);
+  background: var(--chassis-tab-bg);
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-shrink: 0;
+}
+
+.chassis-tab-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.chassis-tab {
+  display: flex;
+  align-items: center;
+  gap: var(--chassis-tab-gap);
+  padding: 0 var(--chassis-tab-padding, 0.5rem);
+  height: 100%;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  font-size: var(--chassis-tab-font-size);
+  color: var(--chassis-tab-text);
+  background: transparent;
+  border: none;
+  flex-shrink: 0;
+}
+
+.chassis-tab.active {
+  background: var(--chassis-tab-active-bg);
+  color: var(--chassis-tab-active-text);
+}
+
+.chassis-tab-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chassis-tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  border-radius: var(--chassis-tab-close-radius);
+  font-size: var(--chassis-tab-close-size);
+  line-height: 1;
+  opacity: 0;
+  transition: opacity var(--chassis-transition-speed, 0.15s);
+}
+
+.chassis-tab:hover .chassis-tab-close {
+  opacity: var(--chassis-tab-close-hover-opacity, 0.6);
+}
+
+.chassis-tab-close:hover {
+  opacity: 1 !important;
+}
+
+.chassis-tab-spacer {
+  flex: 1;
+  height: 100%;
+}
+
+/* ---------------------------------------------------------------------------
+   Slot Content
+   --------------------------------------------------------------------------- */
+
+.chassis-slot-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ---------------------------------------------------------------------------
+   Dock Overlay (attach zones)
+   --------------------------------------------------------------------------- */
+
+.chassis-dock-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.chassis-dock-zone {
+  position: absolute;
+  pointer-events: all;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.chassis-dock-zone.active {
+  opacity: var(--chassis-dock-opacity);
+  background: var(--chassis-dock-highlight);
+}
+
+.chassis-dock-zone.top {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 30%;
+}
+
+.chassis-dock-zone.bottom {
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 30%;
+}
+
+.chassis-dock-zone.left {
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 30%;
+}
+
+.chassis-dock-zone.right {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 30%;
+}
+
+.chassis-dock-zone.center {
+  top: 30%;
+  left: 30%;
+  right: 30%;
+  bottom: 30%;
+}
+
+/* ---------------------------------------------------------------------------
+   Divider (between divisions)
+   --------------------------------------------------------------------------- */
+
+.chassis-divider {
+  flex-shrink: 0;
+  background: var(--chassis-divider-bg);
+  cursor: col-resize;
+}
+
+.chassis-division[style*="row"]>.chassis-divider {
+  width: var(--chassis-divider-size, 4px);
+  cursor: col-resize;
+}
+
+.chassis-division[style*="column"]>.chassis-divider {
+  height: var(--chassis-divider-size, 4px);
+  cursor: row-resize;
+}
+
+.chassis-divider:hover {
+  background: var(--chassis-divider-hover-bg);
+}
+
+/* ---------------------------------------------------------------------------
+   Empty state
+   --------------------------------------------------------------------------- */
+
+.chassis-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--chassis-tab-text);
+  opacity: 0.5;
+}
+
+/* ---------------------------------------------------------------------------
+   Sidebar
+   --------------------------------------------------------------------------- */
+
+.chassis-sidebar {
+  display: flex;
+  height: 100%;
+}
+
+.chassis-activity-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+  gap: 4px;
+  flex-shrink: 0;
+  background: var(--chassis-shell-bg);
+}
+
+.chassis-sidebar-panel {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  flex: 1;
+  background: var(--chassis-slot-bg);
+}
+
+/* ---------------------------------------------------------------------------
+   Dock Panel (collapsible side/bottom panel)
+   --------------------------------------------------------------------------- */
+
+.chassis-dock-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--chassis-slot-bg);
+  overflow: hidden;
+}
+
+.chassis-dock-panel.collapsed {
+  display: none;
+}
+
+.chassis-dock-panel.right {
+  border-left: 1px solid var(--chassis-slot-border);
+}
+
+.chassis-dock-panel.bottom {
+  border-top: 1px solid var(--chassis-slot-border);
+}
+
+.chassis-dock-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  flex-shrink: 0;
+  background: var(--chassis-tab-bg);
+}
+
+.chassis-dock-content {
+  flex: 1;
+  overflow: auto;
+}

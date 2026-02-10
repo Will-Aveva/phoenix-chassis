@@ -1,0 +1,36 @@
+/* ==========================================================================
+   Chassis Demo Theme — Example Adopter Theme
+   ==========================================================================
+   Per Adopter Theming Spec §T4.1, the adopter provides ALL aesthetic values.
+   This file demonstrates the minimum required theme for a Chassis application.
+   ========================================================================== */
+
+:root {
+    /* Structural (§T1-A) */
+    --chassis-tab-height: 2rem;
+    --chassis-divider-size: 4px;
+    --chassis-dock-opacity: 0.15;
+
+    /* Visual (§T1-B) */
+    --chassis-shell-bg: #1e1e2e;
+    --chassis-slot-bg: #181825;
+    --chassis-slot-border: #313244;
+    --chassis-tab-bg: #1e1e2e;
+    --chassis-tab-text: #a6adc8;
+    --chassis-tab-active-bg: #181825;
+    --chassis-tab-active-text: #cdd6f4;
+    --chassis-tab-gap: 4px;
+    --chassis-tab-padding: 12px;
+    --chassis-dock-highlight: rgba(137, 180, 250, 0.15);
+    --chassis-divider-bg: #313244;
+    --chassis-divider-hover-bg: #89b4fa;
+
+    /* Tab typography & close button (§T2 — required, no framework fallbacks) */
+    --chassis-tab-font-size: 13px;
+    --chassis-tab-close-radius: 3px;
+    --chassis-tab-close-size: 14px;
+
+    /* Interaction feedback (§T2 — optional, framework has fallbacks) */
+    --chassis-transition-speed: 0.15s;
+    --chassis-tab-close-hover-opacity: 0.6;
+}
