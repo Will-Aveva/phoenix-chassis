@@ -29,6 +29,11 @@ const ChassisTab = {
         });
 
         // Drop target (tab reordering)
+        el.addEventListener("dragenter", (e) => {
+            e.preventDefault();
+            el.classList.add("drag-over");
+        });
+
         el.addEventListener("dragover", (e) => {
             e.preventDefault();
             e.dataTransfer.dropEffect = "move";
@@ -66,6 +71,11 @@ const ChassisDragDrop = {
         const dropType = el.dataset.dropType;
         const direction = el.dataset.direction;
         const slotId = el.dataset.slotId;
+
+        el.addEventListener("dragenter", (e) => {
+            e.preventDefault();
+            el.classList.add("active");
+        });
 
         el.addEventListener("dragover", (e) => {
             e.preventDefault();

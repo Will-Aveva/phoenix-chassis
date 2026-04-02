@@ -111,9 +111,11 @@ defmodule ChassisWeb.Components.Shell do
         
         <div class="chassis-tab-spacer"></div>
       </div>
-       <.dock_overlay slot_id={@active_id} />
-      <div class="chassis-slot-content">
-        {@provider.render_content(@active_id, Map.put(@provider_assigns, :slot_id, @active_id))}
+      <div class="chassis-content-wrapper" style="position: relative; flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0;">
+        <.dock_overlay slot_id={@active_id} />
+        <div class="chassis-slot-content">
+          {@provider.render_content(@active_id, Map.put(@provider_assigns, :slot_id, @active_id))}
+        </div>
       </div>
     </div>
     """
