@@ -111,7 +111,7 @@ defmodule ChassisWeb.Components.Shell do
         
         <div class="chassis-tab-spacer"></div>
       </div>
-      <div class="chassis-content-wrapper" style="position: relative; flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0;">
+      <div class="chassis-content-wrapper" style="position: relative; flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; min-width: 0; height: 100%; width: 100%;">
         <.dock_overlay slot_id={@active_id} />
         <div class="chassis-slot-content">
           {@provider.render_content(@active_id, Map.put(@provider_assigns, :slot_id, @active_id))}
@@ -166,7 +166,7 @@ defmodule ChassisWeb.Components.Shell do
   defp child_flex_style(child, weights) do
     slot_id = first_slot_id(child)
     weight = Map.get(weights, slot_id, 1)
-    "flex: #{weight}; min-width: 0; min-height: 0;"
+    "flex: #{weight}; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; height: 100%;"
   end
 
   defp first_slot_id({:slot, id}), do: id
