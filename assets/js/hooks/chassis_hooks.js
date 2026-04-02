@@ -16,15 +16,16 @@ const ChassisTab = {
             this.pushEvent("chassis:focus_slot", { slot_id: slotId });
         });
 
-        // Drag start
         el.addEventListener("dragstart", (e) => {
             e.dataTransfer.effectAllowed = "move";
             e.dataTransfer.setData("text/plain", slotId);
             el.classList.add("dragging");
+            document.body.classList.add("chassis-dragging");
         });
 
         el.addEventListener("dragend", () => {
             el.classList.remove("dragging");
+            document.body.classList.remove("chassis-dragging");
         });
 
         // Drop target (tab reordering)
@@ -80,7 +81,8 @@ const ChassisDragDrop = {
             e.preventDefault();
             el.classList.remove("active");
             const draggedId = e.dataTransfer.getData("text/plain");
-            if (!draggedId || draggedId === slotId) return;
+            if (!draggedId) return;
+            if (draggedId === slotId && dropType === "dock-zone") return;
 
             if (dropType === "dock-zone") {
                 // Center drop — add to stack
@@ -116,10 +118,12 @@ const ChassisSidebarItem = {
             e.dataTransfer.effectAllowed = "move";
             e.dataTransfer.setData("text/plain", slotId);
             el.classList.add("dragging");
+            document.body.classList.add("chassis-dragging");
         });
 
         el.addEventListener("dragend", () => {
             el.classList.remove("dragging");
+            document.body.classList.remove("chassis-dragging");
         });
     },
 };

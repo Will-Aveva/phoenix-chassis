@@ -141,9 +141,13 @@
 
 .chassis-dock-zone {
   position: absolute;
-  pointer-events: all;
+  pointer-events: none;
   opacity: 0;
   transition: opacity 0.15s;
+}
+
+body.chassis-dragging .chassis-dock-zone {
+  pointer-events: all;
 }
 
 .chassis-dock-zone.active {
