@@ -35,13 +35,13 @@ defmodule ChassisWeb.DemoLive do
   end
 
   @impl Chassis.SlotProvider
-  def tab_label(:editor), do: "Editor"
-  def tab_label(:preview), do: "Preview"
-  def tab_label(:terminal), do: "Terminal"
-  def tab_label(:notes), do: "📝 Notes"
-  def tab_label(:debugger), do: "🔍 Debugger"
-  def tab_label(:settings), do: "⚙️ Settings"
-  def tab_label(slot_id), do: to_string(slot_id)
+  def tab_label(:editor, _assigns), do: "Editor"
+  def tab_label(:preview, _assigns), do: "Preview"
+  def tab_label(:terminal, _assigns), do: "Terminal"
+  def tab_label(:notes, _assigns), do: "📝 Notes"
+  def tab_label(:debugger, _assigns), do: "🔍 Debugger"
+  def tab_label(:settings, _assigns), do: "⚙️ Settings"
+  def tab_label(slot_id, _assigns), do: to_string(slot_id)
 
   # tab_icon/1 and closable?/1 use defaults from __using__
 

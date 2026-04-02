@@ -24,7 +24,7 @@ defmodule ChassisWeb.Components.ShellTest do
     end
 
     @impl Chassis.SlotProvider
-    def tab_label(slot_id), do: "Label:#{slot_id}"
+    def tab_label(slot_id, _assigns), do: "Label:#{slot_id}"
 
     # closable?/1 defaults to true via __using__
     # tab_icon/1 defaults to nil via __using__
@@ -44,7 +44,7 @@ defmodule ChassisWeb.Components.ShellTest do
     end
 
     @impl Chassis.SlotProvider
-    def tab_label(slot_id), do: "Label:#{slot_id}"
+    def tab_label(slot_id, _assigns), do: "Label:#{slot_id}"
 
     @impl Chassis.SlotProvider
     def closable?(_slot_id), do: false
@@ -64,7 +64,7 @@ defmodule ChassisWeb.Components.ShellTest do
     end
 
     @impl Chassis.SlotProvider
-    def tab_label(slot_id), do: "Label:#{slot_id}"
+    def tab_label(slot_id, _assigns), do: "Label:#{slot_id}"
 
     @impl Chassis.SlotProvider
     def tab_icon(_slot_id), do: "📄"

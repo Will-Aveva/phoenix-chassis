@@ -41,15 +41,18 @@ defmodule Chassis.SlotProvider do
               Phoenix.LiveView.Rendered.t()
 
   @doc "Provide the text label for a tab."
-  @callback tab_label(slot_id :: term()) :: String.t()
+  @callback tab_label(slot_id :: term(), assigns :: map()) :: String.t()
 
   @doc "Provide an icon identifier for a tab. Returns nil for no icon."
   @callback tab_icon(slot_id :: term()) :: String.t() | nil
 
+  @doc "Provide the tab position."
+  @callback tab_position(slot_id :: term()) :: atom()
+
   @doc "Whether the user can close this tab."
   @callback closable?(slot_id :: term()) :: boolean()
 
-  @optional_callbacks [tab_icon: 1, closable?: 1]
+  @optional_callbacks [tab_icon: 1, tab_position: 1, closable?: 1]
 
   defmacro __using__(_opts) do
     quote do
@@ -59,9 +62,12 @@ defmodule Chassis.SlotProvider do
       def tab_icon(_slot_id), do: nil
 
       @doc false
+      def tab_position(_slot_id), do: :top
+
+      @doc false
       def closable?(_slot_id), do: true
 
-      defoverridable tab_icon: 1, closable?: 1
+      defoverridable tab_icon: 1, tab_position: 1, closable?: 1
     end
   end
 end

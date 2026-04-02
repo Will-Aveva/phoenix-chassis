@@ -9,7 +9,7 @@ defmodule Chassis.SlotProviderTest do
     def render_content(_slot_id, _assigns), do: "content"
 
     @impl true
-    def tab_label(_slot_id), do: "Label"
+    def tab_label(_slot_id, _assigns), do: "Label"
   end
 
   # A full provider implementing all callbacks
@@ -20,8 +20,8 @@ defmodule Chassis.SlotProviderTest do
     def render_content(_slot_id, _assigns), do: "content"
 
     @impl true
-    def tab_label(:editor), do: "Editor"
-    def tab_label(_), do: "Unknown"
+    def tab_label(:editor, _assigns), do: "Editor"
+    def tab_label(_, _assigns), do: "Unknown"
 
     @impl true
     def tab_icon(:editor), do: "code"
@@ -36,7 +36,7 @@ defmodule Chassis.SlotProviderTest do
     test "T-9.1: behaviour module defines correct callbacks" do
       callbacks = Chassis.SlotProvider.behaviour_info(:callbacks)
       assert {:render_content, 2} in callbacks
-      assert {:tab_label, 1} in callbacks
+      assert {:tab_label, 2} in callbacks
       assert {:tab_icon, 1} in callbacks
       assert {:closable?, 1} in callbacks
     end
@@ -45,7 +45,7 @@ defmodule Chassis.SlotProviderTest do
       # If this module compiled, the test passes —
       # optional callbacks have defaults via __using__
       assert MinimalProvider.render_content(:any, %{}) == "content"
-      assert MinimalProvider.tab_label(:any) == "Label"
+      assert MinimalProvider.tab_label(:any, %{}) == "Label"
     end
 
     test "optional callbacks have content-blind defaults" do
@@ -57,8 +57,8 @@ defmodule Chassis.SlotProviderTest do
   describe "full provider (all callbacks)" do
     test "required callbacks work" do
       assert FullProvider.render_content(:editor, %{}) == "content"
-      assert FullProvider.tab_label(:editor) == "Editor"
-      assert FullProvider.tab_label(:unknown) == "Unknown"
+      assert FullProvider.tab_label(:editor, %{}) == "Editor"
+      assert FullProvider.tab_label(:unknown, %{}) == "Unknown"
     end
 
     test "overridden optional callbacks work" do
@@ -76,7 +76,7 @@ defmodule Chassis.SlotProviderTest do
     end
 
     test "tab_label receives only slot_id" do
-      assert FullProvider.tab_label(:editor) == "Editor"
+      assert FullProvider.tab_label(:editor, %{}) == "Editor"
     end
   end
 end

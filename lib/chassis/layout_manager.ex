@@ -70,6 +70,11 @@ defmodule Chassis.LayoutManager do
     GenServer.call(server, {:resize, slot_id, weight, composition})
   end
 
+  @doc "Set the flex weight for two slots simultaneously (used when resizing division)."
+  def resize_pair(server \\ __MODULE__, slot_id, next_slot_id, ratio, composition \\ :default) do
+    GenServer.call(server, {:resize_pair, slot_id, next_slot_id, ratio, composition})
+  end
+
   @doc "Get the weights map for a composition."
   def get_weights(server \\ __MODULE__, composition \\ :default) do
     GenServer.call(server, {:get_weights, composition})
@@ -225,6 +230,16 @@ defmodule Chassis.LayoutManager do
   def handle_call({:resize, slot_id, weight, composition}, _from, state) do
     key = {composition, slot_id}
     weights = Map.put(state.weights, key, weight)
+    state = %{state | weights: weights}
+    broadcast(:resize, composition, get_in(state, [:compositions, composition]))
+    {:reply, :ok, state}
+  end
+
+  @impl true
+  def handle_call({:resize_pair, slot_id, next_slot_id, ratio, composition}, _from, state) do
+    key1 = {composition, slot_id}
+    key2 = {composition, next_slot_id}
+    weights = Map.merge(state.weights, %{key1 => ratio, key2 => 1.0 - ratio})
     state = %{state | weights: weights}
     broadcast(:resize, composition, get_in(state, [:compositions, composition]))
     {:reply, :ok, state}

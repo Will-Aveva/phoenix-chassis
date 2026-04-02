@@ -34,16 +34,18 @@ defmodule ChassisWeb.Components.Shell do
   attr :provider, :atom, required: true
   attr :weights, :map, default: %{}
   attr :active_slot, :any, default: nil
+  attr :id, :string, default: "chassis-shell"
+  attr :provider_assigns, :any, default: %{}
 
   def layout(assigns) do
     ~H"""
     <div
       class="chassis-shell"
-      id="chassis-shell"
+      id={@id}
       phx-hook="ChassisKeyboard"
       data-active-slot={@active_slot}
     >
-      <.tree_node node={@tree} provider={@provider} weights={@weights} />
+      <.tree_node node={@tree} provider={@provider} weights={@weights} provider_assigns={@provider_assigns} />
     </div>
     """
   end
@@ -55,6 +57,7 @@ defmodule ChassisWeb.Components.Shell do
   attr :node, :any, required: true
   attr :provider, :atom, required: true
   attr :weights, :map, default: %{}
+  attr :provider_assigns, :any, default: %{}
 
   def tree_node(%{node: nil} = assigns) do
     ~H"""
@@ -67,7 +70,7 @@ defmodule ChassisWeb.Components.Shell do
     assigns = assign(assigns, :node, {:stack, id, [id]})
 
     ~H"""
-    <.tree_node node={@node} provider={@provider} weights={@weights} />
+    <.tree_node node={@node} provider={@provider} weights={@weights} provider_assigns={@provider_assigns} />
     """
   end
 
@@ -93,7 +96,7 @@ defmodule ChassisWeb.Components.Shell do
             <%= if icon = @provider.tab_icon(slot_id) do %>
               <span class="chassis-tab-icon">{icon}</span>
             <% end %>
-             <span class="chassis-tab-label">{@provider.tab_label(slot_id)}</span>
+             <span class="chassis-tab-label">{@provider.tab_label(slot_id, @provider_assigns)}</span>
             <%= if @provider.closable?(slot_id) do %>
               <button
                 class="chassis-tab-close"
@@ -110,7 +113,7 @@ defmodule ChassisWeb.Components.Shell do
       </div>
        <.dock_overlay slot_id={@active_id} />
       <div class="chassis-slot-content">
-        {@provider.render_content(@active_id, %{slot_id: @active_id})}
+        {@provider.render_content(@active_id, Map.put(@provider_assigns, :slot_id, @active_id))}
       </div>
     </div>
     """
@@ -136,7 +139,7 @@ defmodule ChassisWeb.Components.Shell do
     <div class="chassis-division" style={"flex-direction: #{@flex_dir};"}>
       <%= for {child, idx} <- @indexed_children do %>
         <div style={child_flex_style(child, @weights)}>
-          <.tree_node node={child} provider={@provider} weights={@weights} />
+          <.tree_node node={child} provider={@provider} weights={@weights} provider_assigns={@provider_assigns} />
         </div>
         
         <%= if idx < @child_count - 1 do %>
