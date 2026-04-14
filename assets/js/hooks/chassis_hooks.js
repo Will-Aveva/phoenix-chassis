@@ -224,6 +224,20 @@ const ChassisResize = {
  */
 const ChassisKeyboard = {
     mounted() {
+        // Track visual focus via clicks
+        this.el.addEventListener("mousedown", (e) => {
+            const stack = e.target.closest(".chassis-stack");
+            if (stack) {
+                const clickedSlotId = stack.dataset.activeId;
+                const currentActiveSlot = this.el.dataset.activeSlot;
+                
+                // If they clicked a pane that isn't active, focus it
+                if (clickedSlotId && clickedSlotId !== currentActiveSlot) {
+                    this.pushEvent("chassis:focus_slot", { slot_id: clickedSlotId });
+                }
+            }
+        });
+
         this.handleKeyDown = (e) => {
             const activeSlot = this.el.dataset.activeSlot;
             if (!activeSlot) return;

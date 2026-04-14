@@ -82,7 +82,7 @@ defmodule ChassisWeb.Components.Shell do
       |> assign(:slot_ids, slot_ids)
 
     ~H"""
-    <div class="chassis-stack">
+    <div class="chassis-stack" data-active-id={@active_id}>
       <div class="chassis-tab-bar">
         <%= for slot_id <- @slot_ids do %>
           <div
