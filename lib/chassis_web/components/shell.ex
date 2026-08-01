@@ -13,6 +13,8 @@ defmodule ChassisWeb.Components.Shell do
   """
   use Phoenix.Component
 
+  alias Chassis.Layout
+
   # ---------------------------------------------------------------------------
   # Main entry point
   # ---------------------------------------------------------------------------
@@ -164,27 +166,17 @@ defmodule ChassisWeb.Components.Shell do
   # Helpers
   # ---------------------------------------------------------------------------
 
-  # KNOWN BUG: this key aliases across nesting levels, so one weight can size two different shares.
-  #
-  # `first_slot_id/1` walks to the leftmost slot, so a division's child and that child's own first
-  # child answer the same slot id. Dragging the divider between `editor` and a division
-  # `[preview, terminal]` writes a weight for `preview`; the nested `preview | terminal` divider then
-  # reads the same weight, and a split the user never touched resizes with it. Confirmed with a
-  # browser drag against the demo, and present in `Will-Aveva/demo_grid` by the same construction.
-  #
-  # Unfixed here because the fix is a decision, not a typo: the key has to name a *subtree* rather
-  # than a slot, and every candidate (the subtree's first+last slot, a path, a division-local index)
-  # trades uniqueness against stability when the subtree's contents change.
+  # Keyed by the child subtree's two ends (`Layout.weight_key/1`), not by its first slot: a division
+  # and its own first child answer the same slot, so one weight used to size both — dragging an
+  # outer divider resized a nested division nobody touched.
   defp child_flex_style(child, weights) do
-    slot_id = first_slot_id(child)
-    weight = Map.get(weights, slot_id, 1)
+    weight = Map.get(weights, Layout.weight_key(child), 1)
     "flex: #{weight}; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; height: 100%;"
   end
 
-  defp first_slot_id({:slot, id}), do: id
-  defp first_slot_id({:stack, _active, [first | _]}), do: first
-  defp first_slot_id({:division, _dir, [first | _]}), do: first_slot_id(first)
-  defp first_slot_id(_), do: "unknown"
+  # One definition of "the first slot" lives in the pure core; the Shell only adds a rendering
+  # fallback, so a node that holds no slot cannot produce a bare `chassis-divider-` id.
+  defp first_slot_id(node), do: Layout.first_slot_id(node) || "unknown"
 
   # A divider names BOTH of the subtrees it separates — in its id, and in its data attributes.
   #

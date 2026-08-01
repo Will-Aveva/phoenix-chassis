@@ -32,7 +32,9 @@ defmodule Chassis.Persistence do
 
   @doc """
   Serialize a weights map to an opaque binary format.
-  The weights map has the shape `%{slot_id => weight}`.
+
+  The map is keyed by `Chassis.Layout.weight_key/1` — a division child's two ends — rather than by a
+  slot id, since one slot id names a child and every ancestor above it on the same edge.
   """
   @spec save_weights(map()) :: binary()
   def save_weights(weights) when is_map(weights) do

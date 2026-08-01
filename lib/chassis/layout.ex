@@ -266,6 +266,93 @@ defmodule Chassis.Layout do
     end
   end
 
+  @doc """
+  The first slot of a subtree — the leading container's first slot.
+
+  `nil` for a node that holds no slot. Callers key sizing hints by `weight_key/1`, not by this.
+  """
+  @spec first_slot_id(tree_node()) :: slot_id() | nil
+  def first_slot_id({:slot, id}), do: id
+  def first_slot_id({:stack, _active, [first | _]}), do: first
+  def first_slot_id({:division, _dir, [first | _]}), do: first_slot_id(first)
+  def first_slot_id(_node), do: nil
+
+  @doc """
+  The last slot of a subtree — the trailing container's **first** slot.
+
+  Its first slot rather than its last, for the same reason `first_slot_id/1` uses one: a container's
+  identity must not move when the user adds or closes a slot inside it.
+  """
+  @spec last_slot_id(tree_node()) :: slot_id() | nil
+  def last_slot_id({:slot, id}), do: id
+  def last_slot_id({:stack, _active, [first | _]}), do: first
+  def last_slot_id({:division, _dir, children}), do: children |> List.last() |> last_slot_id()
+  def last_slot_id(_node), do: nil
+
+  @doc """
+  The identity of a division's child, for keying its flex weight (INV-2.5): the containers at its
+  two ends.
+
+  A division's children are subtrees, and one slot id is not a name for one. `first_slot_id/1` walks
+  to the leading slot, so a division and its own first child answer the *same* slot: keyed on that
+  alone, one weight sized two different shares, and dragging an outer divider resized a nested
+  division nobody touched.
+
+  The pair is unique. An ancestor and its first child agree on the first slot but never on the last,
+  since the ancestor holds at least one more subtree after that child; and two unrelated subtrees
+  hold disjoint slots, so they cannot agree on both ends.
+
+  A key that stops matching — because the subtree's ends changed — falls back to an even share,
+  which is visible and recoverable. A key that matched the *wrong* child would silently hand a
+  container somebody else's size.
+  """
+  @spec weight_key(tree_node()) :: {slot_id() | nil, slot_id() | nil}
+  def weight_key(node), do: {first_slot_id(node), last_slot_id(node)}
+
+  @doc """
+  The weight keys of the two children a divider sits between, located by the pair of first slot ids
+  the divider names.
+
+  `nil` when no division has those as consecutive children — a divider that is no longer there,
+  which costs the drag and nothing else.
+  """
+  @spec divider_keys(tree_node(), slot_id(), slot_id()) :: {tuple(), tuple()} | nil
+  def divider_keys(tree, slot_id, next_slot_id)
+
+  def divider_keys({:division, _dir, children}, slot_id, next_slot_id) do
+    consecutive =
+      children
+      |> Enum.chunk_every(2, 1, :discard)
+      |> Enum.find(fn [left, right] ->
+        first_slot_id(left) == slot_id and first_slot_id(right) == next_slot_id
+      end)
+
+    case consecutive do
+      [left, right] -> {weight_key(left), weight_key(right)}
+      nil -> Enum.find_value(children, &divider_keys(&1, slot_id, next_slot_id))
+    end
+  end
+
+  def divider_keys(_node, _slot_id, _next_slot_id), do: nil
+
+  @doc """
+  The weight key of the container holding a slot — the leaf a `resize/3` names.
+
+  `nil` when the slot is not in the tree.
+  """
+  @spec container_key(tree_node(), slot_id()) :: tuple() | nil
+  def container_key({:slot, id}, slot_id) when id == slot_id, do: {id, id}
+
+  def container_key({:stack, _active, ids} = stack, slot_id) do
+    if slot_id in ids, do: weight_key(stack), else: nil
+  end
+
+  def container_key({:division, _dir, children}, slot_id) do
+    Enum.find_value(children, &container_key(&1, slot_id))
+  end
+
+  def container_key(_node, _slot_id), do: nil
+
   # Find the stack containing a slot ID
   defp find_containing_stack({:stack, _active, ids} = stack, slot_id) do
     if slot_id in ids, do: stack, else: nil

@@ -226,13 +226,23 @@ defmodule Chassis.LayoutManager do
     {:reply, slots, state}
   end
 
+  # Weights are keyed by `{composition, Layout.weight_key(child)}` — the child subtree's two ends,
+  # not one slot id. A slot id alone names a child and every ancestor above it on the same edge, so
+  # one weight sized two different shares.
   @impl true
   def handle_call({:resize, slot_id, weight, composition}, _from, state) do
-    key = {composition, slot_id}
-    weights = Map.put(state.weights, key, weight)
-    state = %{state | weights: weights}
-    broadcast(:resize, composition, get_in(state, [:compositions, composition]))
-    {:reply, :ok, state}
+    tree = get_in(state, [:compositions, composition])
+
+    case Layout.container_key(tree, slot_id) do
+      nil ->
+        {:reply, {:error, :no_such_slot}, state}
+
+      container_key ->
+        weights = Map.put(state.weights, {composition, container_key}, weight)
+        state = %{state | weights: weights}
+        broadcast(:resize, composition, tree)
+        {:reply, :ok, state}
+    end
   end
 
   # Both sides of a divider are written together, and their COMBINED weight is preserved.
@@ -250,18 +260,28 @@ defmodule Chassis.LayoutManager do
   # where this was fixed on the way in.
   @impl true
   def handle_call({:resize_pair, slot_id, next_slot_id, ratio, composition}, _from, state) do
-    ratio = clamp_ratio(ratio)
-    key1 = {composition, slot_id}
-    key2 = {composition, next_slot_id}
+    tree = get_in(state, [:compositions, composition])
 
-    combined = Map.get(state.weights, key1, 1.0) + Map.get(state.weights, key2, 1.0)
+    case Layout.divider_keys(tree, slot_id, next_slot_id) do
+      nil ->
+        # No division has those two as consecutive children: the divider is gone, or was never
+        # there. Nothing to redistribute between.
+        {:reply, {:error, :no_such_divider}, state}
 
-    weights =
-      Map.merge(state.weights, %{key1 => combined * ratio, key2 => combined * (1.0 - ratio)})
+      {left, right} ->
+        ratio = clamp_ratio(ratio)
+        key1 = {composition, left}
+        key2 = {composition, right}
 
-    state = %{state | weights: weights}
-    broadcast(:resize, composition, get_in(state, [:compositions, composition]))
-    {:reply, :ok, state}
+        combined = Map.get(state.weights, key1, 1.0) + Map.get(state.weights, key2, 1.0)
+
+        weights =
+          Map.merge(state.weights, %{key1 => combined * ratio, key2 => combined * (1.0 - ratio)})
+
+        state = %{state | weights: weights}
+        broadcast(:resize, composition, tree)
+        {:reply, :ok, state}
+    end
   end
 
   @impl true
