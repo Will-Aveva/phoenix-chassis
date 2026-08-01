@@ -147,7 +147,7 @@ defmodule ChassisWeb.Components.Shell do
         <%= if idx < @child_count - 1 do %>
           <div
             class="chassis-divider"
-            id={"chassis-divider-#{first_slot_id(child)}"}
+            id={divider_id(child, Enum.at(@children, idx + 1))}
             data-slot-id={first_slot_id(child)}
             data-direction={@dir_str}
             phx-hook="ChassisResize"
@@ -173,6 +173,18 @@ defmodule ChassisWeb.Components.Shell do
   defp first_slot_id({:stack, _active, [first | _]}), do: first
   defp first_slot_id({:division, _dir, [first | _]}), do: first_slot_id(first)
   defp first_slot_id(_), do: "unknown"
+
+  # A divider is named by BOTH of the subtrees it separates, because one of them is not enough.
+  #
+  # `first_slot_id/1` walks to the leftmost slot, so a division and its own first child answer the
+  # same slot — and a division nested as a non-last child then produced the same
+  # `chassis-divider-<slot>` id at two levels of the tree. LiveView patches by id: the resize hook
+  # mounts on whichever it finds first, and dragging the other divider does nothing. The pair is
+  # unique because the two subtrees a divider sits between never share a leftmost slot (a slot
+  # appears in exactly one place).
+  defp divider_id(child, next_child) do
+    "chassis-divider-#{first_slot_id(child)}-#{first_slot_id(next_child)}"
+  end
 
   # ---------------------------------------------------------------------------
   # Dock overlay (attach zones)
