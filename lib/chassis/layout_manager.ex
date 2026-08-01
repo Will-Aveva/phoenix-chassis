@@ -235,11 +235,30 @@ defmodule Chassis.LayoutManager do
     {:reply, :ok, state}
   end
 
+  # Both sides of a divider are written together, and their COMBINED weight is preserved.
+  #
+  # This used to write `%{first => ratio, second => 1.0 - ratio}` while the Shell defaults every
+  # other child of the division to `1`. In a division with more than two children that is not the
+  # arrangement the user dragged: at 40/60 the two dragged children render `0.4 : 0.6 : 1`, so both
+  # of them shrink against a child nobody touched. Splitting the pair's own share leaves every
+  # other sibling where it was, and reduces to the same numbers when the division has two children.
+  #
+  # The ratio is clamped rather than trusted: it arrives from a pointer drag, and a 0 or a 1 would
+  # collapse a child to nothing, leaving no divider to grab and no way back without a reset.
+  #
+  # Correction contributed back from `Will-Aveva/demo_grid`, the shell Chassis was extracted from,
+  # where this was fixed on the way in.
   @impl true
   def handle_call({:resize_pair, slot_id, next_slot_id, ratio, composition}, _from, state) do
+    ratio = clamp_ratio(ratio)
     key1 = {composition, slot_id}
     key2 = {composition, next_slot_id}
-    weights = Map.merge(state.weights, %{key1 => ratio, key2 => 1.0 - ratio})
+
+    combined = Map.get(state.weights, key1, 1.0) + Map.get(state.weights, key2, 1.0)
+
+    weights =
+      Map.merge(state.weights, %{key1 => combined * ratio, key2 => combined * (1.0 - ratio)})
+
     state = %{state | weights: weights}
     broadcast(:resize, composition, get_in(state, [:compositions, composition]))
     {:reply, :ok, state}
@@ -260,6 +279,18 @@ defmodule Chassis.LayoutManager do
   # ---------------------------------------------------------------------------
   # Internal helpers
   # ---------------------------------------------------------------------------
+
+  # A child may never be dragged to nothing: at the extremes there is no divider left to grab, so
+  # the arrangement is unrecoverable without discarding the composition. A client is not the
+  # authority on that bound.
+  @min_ratio 0.05
+  @max_ratio 0.95
+
+  defp clamp_ratio(ratio) when is_number(ratio) do
+    ratio |> max(@min_ratio) |> min(@max_ratio) |> :erlang.float()
+  end
+
+  defp clamp_ratio(_ratio), do: 0.5
 
   defp ensure_composition(state, composition) do
     if get_in(state, [:compositions, composition]) == nil and

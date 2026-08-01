@@ -94,6 +94,91 @@ defmodule Chassis.LayoutManagerTest do
     end
   end
 
+  # A divider drag. `resize/4` writes one child's weight; `resize_pair/5` is what a divider commits,
+  # because a divider is a boundary between two children and moving it changes both.
+  describe "resize_pair/5" do
+    test "splits the pair's own share, so a third sibling is untouched", %{server: server} do
+      # The bug this replaced: writing `ratio` and `1 - ratio` while the Shell defaults every other
+      # child to 1. Dragging the first divider of a three-way division to 40/60 then rendered
+      # `0.4 : 0.6 : 1` — both dragged children shrinking against one nobody touched.
+      :ok = LayoutManager.attach(server, :a)
+      :ok = LayoutManager.attach(server, :b)
+      :ok = LayoutManager.attach(server, :c)
+
+      :ok = LayoutManager.resize_pair(server, :a, :b, 0.4)
+
+      weights = LayoutManager.get_weights(server)
+      assert weights[:a] == 0.8
+      assert weights[:b] == 1.2
+      assert weights[:a] + weights[:b] == 2.0, "the pair keeps its combined share"
+      refute Map.has_key?(weights, :c), "an untouched sibling stores nothing and renders flex: 1"
+    end
+
+    test "two children reduce to the plain ratio", %{server: server} do
+      :ok = LayoutManager.attach(server, :a)
+      :ok = LayoutManager.attach(server, :b)
+
+      :ok = LayoutManager.resize_pair(server, :a, :b, 0.25)
+
+      weights = LayoutManager.get_weights(server)
+      assert weights[:a] == 0.5
+      assert weights[:b] == 1.5
+    end
+
+    test "a second drag redistributes the share the first one left", %{server: server} do
+      :ok = LayoutManager.attach(server, :a)
+      :ok = LayoutManager.attach(server, :b)
+      :ok = LayoutManager.attach(server, :c)
+
+      :ok = LayoutManager.resize_pair(server, :a, :b, 0.25)
+      :ok = LayoutManager.resize_pair(server, :b, :c, 0.5)
+
+      weights = LayoutManager.get_weights(server)
+      assert weights[:a] == 0.5, "a was not part of the second drag and must not move"
+      assert weights[:b] + weights[:c] == 2.5
+      assert weights[:b] == weights[:c]
+    end
+
+    test "the ratio is clamped, so a child can never be dragged away entirely", %{server: server} do
+      # At 0 or 1 there is no divider left to grab and the arrangement is unrecoverable. The client
+      # proposes; the server bounds.
+      :ok = LayoutManager.attach(server, :a)
+      :ok = LayoutManager.attach(server, :b)
+
+      :ok = LayoutManager.resize_pair(server, :a, :b, 0.0)
+      assert LayoutManager.get_weights(server)[:a] == 0.1
+
+      :ok = LayoutManager.resize_pair(server, :a, :b, 1.0)
+      weights = LayoutManager.get_weights(server)
+      # In delta: `combined * (1.0 - 0.95)` is not exactly 0.1 in binary floating point, and the
+      # weight is a flex ratio — nothing downstream cares about the last bit.
+      assert_in_delta weights[:a], 1.9, 0.0001
+      assert_in_delta weights[:b], 0.1, 0.0001
+    end
+
+    test "a ratio that is not a number is treated as an even split", %{server: server} do
+      :ok = LayoutManager.attach(server, :a)
+      :ok = LayoutManager.attach(server, :b)
+
+      :ok = LayoutManager.resize_pair(server, :a, :b, nil)
+
+      weights = LayoutManager.get_weights(server)
+      assert weights[:a] == 1.0
+      assert weights[:b] == 1.0
+    end
+
+    test "weights belong to a composition, not to the manager", %{server: server} do
+      :ok = LayoutManager.attach(server, :a)
+      :ok = LayoutManager.attach(server, :b)
+      :ok = LayoutManager.attach(server, :a, :other)
+      :ok = LayoutManager.attach(server, :b, :other)
+
+      :ok = LayoutManager.resize_pair(server, :a, :b, 0.25)
+
+      assert LayoutManager.get_weights(server, :other) == %{}
+    end
+  end
+
   describe "multi-composition" do
     test "compositions are independent", %{server: server} do
       :ok = LayoutManager.attach(server, :a, :workspace_1)

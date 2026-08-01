@@ -305,18 +305,39 @@ defmodule ChassisWeb.DemoLive do
     {:noreply, assign(socket, :tree, tree)}
   end
 
+  # A divider drag, committed on release. The hook has already moved both children optimistically;
+  # this is what makes the arrangement survive the next patch, which removes any inline style the
+  # server did not also declare.
+  #
+  # Both sides are written together so the pair's combined share is preserved — writing one weight
+  # and leaving the sibling at its default is what made a three-way division resize wrongly.
   @impl Phoenix.LiveView
   def handle_event(
         "chassis:resize_division",
-        %{"slot_id" => slot_id_str, "ratio" => ratio},
+        %{"slot_id" => slot_id_str, "next_slot_id" => next_slot_id_str, "ratio" => ratio},
         socket
       ) do
     name = socket.assigns.layout_manager
     comp = socket.assigns.current_composition
     slot_id = String.to_existing_atom(slot_id_str)
-    :ok = LayoutManager.resize(name, slot_id, ratio, comp)
+    next_slot_id = String.to_existing_atom(next_slot_id_str)
+    :ok = LayoutManager.resize_pair(name, slot_id, next_slot_id, ratio, comp)
     weights = LayoutManager.get_weights(name, comp)
     {:noreply, assign(socket, :weights, weights)}
+  end
+
+  # A divider that could not name both of its sides. Nothing to redistribute between, and a partial
+  # write would weigh one child against a sibling that has no weight — so this costs the drag, not
+  # the session.
+  @impl Phoenix.LiveView
+  def handle_event("chassis:resize_division", params, socket) do
+    require Logger
+
+    Logger.warning(
+      "[Chassis] resize_division with incomplete params: #{inspect(Map.keys(params))}"
+    )
+
+    {:noreply, socket}
   end
 
   @impl Phoenix.LiveView

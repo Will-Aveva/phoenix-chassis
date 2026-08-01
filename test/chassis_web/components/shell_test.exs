@@ -232,6 +232,17 @@ defmodule ChassisWeb.Components.ShellTest do
       assert ids == ["chassis-divider-a-b", "chassis-divider-a-c"]
     end
 
+    test "a divider carries both of its sides as data attributes" do
+      # The element carries the identity, not the position: a patch is free to move DOM siblings, so
+      # the committed resize event names the two children rather than being inferred from where the
+      # divider happened to sit.
+      tree = {:division, :horizontal, [{:stack, :b, [:a, :b]}, {:slot, :c}]}
+      html = render_shell(tree)
+
+      assert html =~ ~s(data-slot-id="a")
+      assert html =~ ~s(data-next-slot-id="c")
+    end
+
     test "a stack's active tab does not move its divider's identity" do
       # Clicking a tab must not rename the divider beside it, or the hook is torn down and
       # remounted mid-arrangement. The id follows the stack's FIRST tab, like the weight does.

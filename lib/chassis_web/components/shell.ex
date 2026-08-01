@@ -149,6 +149,7 @@ defmodule ChassisWeb.Components.Shell do
             class="chassis-divider"
             id={divider_id(child, Enum.at(@children, idx + 1))}
             data-slot-id={first_slot_id(child)}
+            data-next-slot-id={first_slot_id(Enum.at(@children, idx + 1))}
             data-direction={@dir_str}
             phx-hook="ChassisResize"
           >
@@ -174,7 +175,14 @@ defmodule ChassisWeb.Components.Shell do
   defp first_slot_id({:division, _dir, [first | _]}), do: first_slot_id(first)
   defp first_slot_id(_), do: "unknown"
 
-  # A divider is named by BOTH of the subtrees it separates, because one of them is not enough.
+  # A divider names BOTH of the subtrees it separates — in its id, and in its data attributes.
+  #
+  # `data-next-slot-id` is what lets the server redistribute the pair's own share instead of writing
+  # one weight and leaving the sibling at its default: the element carries the identity, so the
+  # server never infers which children the divider sat between from DOM position, which a patch is
+  # free to change.
+  #
+  # The id needs both for a different reason.
   #
   # `first_slot_id/1` walks to the leftmost slot, so a division and its own first child answer the
   # same slot — and a division nested as a non-last child then produced the same

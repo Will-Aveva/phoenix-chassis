@@ -148,6 +148,9 @@ const ChassisResize = {
     mounted() {
         const el = this.el;
         const slotId = el.dataset.slotId;
+        // The divider names both of its sides, so the committed event carries the pair and the
+        // server never has to infer which children it sat between from DOM position.
+        const nextSlotId = el.dataset.nextSlotId;
         const direction = el.dataset.direction;
         let startPos = null;
         let startSizes = null;
@@ -201,6 +204,7 @@ const ChassisResize = {
 
                     this.pushEvent("chassis:resize_division", {
                         slot_id: slotId,
+                        next_slot_id: nextSlotId,
                         ratio: ratio,
                     });
                 }
