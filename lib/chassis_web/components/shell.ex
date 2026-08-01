@@ -164,6 +164,17 @@ defmodule ChassisWeb.Components.Shell do
   # Helpers
   # ---------------------------------------------------------------------------
 
+  # KNOWN BUG: this key aliases across nesting levels, so one weight can size two different shares.
+  #
+  # `first_slot_id/1` walks to the leftmost slot, so a division's child and that child's own first
+  # child answer the same slot id. Dragging the divider between `editor` and a division
+  # `[preview, terminal]` writes a weight for `preview`; the nested `preview | terminal` divider then
+  # reads the same weight, and a split the user never touched resizes with it. Confirmed with a
+  # browser drag against the demo, and present in `Will-Aveva/demo_grid` by the same construction.
+  #
+  # Unfixed here because the fix is a decision, not a typo: the key has to name a *subtree* rather
+  # than a slot, and every candidate (the subtree's first+last slot, a path, a division-local index)
+  # trades uniqueness against stability when the subtree's contents change.
   defp child_flex_style(child, weights) do
     slot_id = first_slot_id(child)
     weight = Map.get(weights, slot_id, 1)
