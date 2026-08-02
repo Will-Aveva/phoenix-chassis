@@ -141,77 +141,108 @@ const ChassisSidebarItem = {
 /**
  * Chassis Resize Hook
  *
- * Handles divider drag-to-resize between division children.
+ * Drag a divider to redistribute space between the two children it sits between.
  * Spatial events only — no content awareness (INV-1.1c).
+ *
+ * Pointer events with `setPointerCapture`, not mouse events: a mouse-only binding ignores pen and
+ * touch entirely, and loses the drag the moment the pointer leaves the window. Because the pointer
+ * is captured, every move and release is retargeted to the divider even over an iframe or outside
+ * the viewport, so the listeners live on the element rather than on the document.
+ *
+ * `pointercancel` is not optional — without it, a gesture the browser takes over (a scroll, a
+ * back-swipe) leaves the listeners attached and the body's cursor overridden.
+ *
+ * The drag is optimistic: the children follow the pointer with no round trip, and the event is
+ * pushed once on release. The server re-renders the committed weights into the same wrappers, which
+ * is why they are server-rendered at all — a patch synchronises attributes, and an inline style the
+ * server never declared is removed.
+ *
+ * MIN_CHILD_PX is the floor here; the server clamps the ratio independently, because a client is not
+ * the authority on that bound.
  */
+const MIN_CHILD_PX = 60;
+
 const ChassisResize = {
     mounted() {
+        this.el.addEventListener("pointerdown", this.onPointerDown.bind(this));
+    },
+
+    onPointerDown(e) {
+        // Left button only: a right-click on a divider is a context menu, not a drag.
+        if (e.button !== 0) return;
+
         const el = this.el;
+        const prevEl = el.previousElementSibling;
+        const nextEl = el.nextElementSibling;
+        if (!prevEl || !nextEl) return;
+
+        // The divider names both of its sides, so the committed event carries the pair and the
+        // server never has to infer which children it sat between from DOM position.
         const slotId = el.dataset.slotId;
-        const direction = el.dataset.direction;
-        let startPos = null;
-        let startSizes = null;
-        let prevEl = null;
-        let nextEl = null;
+        const nextSlotId = el.dataset.nextSlotId;
+        if (!slotId || !nextSlotId) return;
 
-        el.addEventListener("mousedown", (e) => {
-            e.preventDefault();
-            prevEl = el.previousElementSibling;
-            nextEl = el.nextElementSibling;
-            if (!prevEl || !nextEl) return;
+        e.preventDefault();
+        el.setPointerCapture?.(e.pointerId);
 
-            const isHorizontal = direction === "horizontal";
-            startPos = isHorizontal ? e.clientX : e.clientY;
-            const prevRect = prevEl.getBoundingClientRect();
-            const nextRect = nextEl.getBoundingClientRect();
-            startSizes = {
-                prev: isHorizontal ? prevRect.width : prevRect.height,
-                next: isHorizontal ? nextRect.width : nextRect.height,
-            };
+        const horizontal = el.dataset.direction === "horizontal";
+        const startPos = horizontal ? e.clientX : e.clientY;
 
-            document.body.style.cursor = isHorizontal ? "col-resize" : "row-resize";
-            document.body.style.userSelect = "none";
+        const prevRect = prevEl.getBoundingClientRect();
+        const nextRect = nextEl.getBoundingClientRect();
+        const prevSize = horizontal ? prevRect.width : prevRect.height;
+        const total = prevSize + (horizontal ? nextRect.width : nextRect.height);
 
-            const onMouseMove = (e) => {
-                if (!startSizes) return;
-                const currentPos = isHorizontal ? e.clientX : e.clientY;
-                const delta = currentPos - startPos;
-                const total = startSizes.prev + startSizes.next;
-                const newPrev = Math.max(50, startSizes.prev + delta);
-                const newNext = Math.max(50, total - newPrev);
-                const ratio = newPrev / (newPrev + newNext);
+        // Degenerate container (both children collapsed, or measured before layout): a ratio from
+        // this would be meaningless, and dividing by it would be worse.
+        if (total < MIN_CHILD_PX * 2) return;
 
-                prevEl.style.flex = `${ratio}`;
-                nextEl.style.flex = `${1 - ratio}`;
-            };
+        // The pair's combined weight is preserved, so the drag redistributes within the pair and
+        // leaves every other child of the division alone. Read from the rendered style, defaulting
+        // to the even share the Shell renders when no weight is stored.
+        const combined = (parseFloat(prevEl.style.flex) || 1) + (parseFloat(nextEl.style.flex) || 1);
 
-            const onMouseUp = (e) => {
-                document.removeEventListener("mousemove", onMouseMove);
-                document.removeEventListener("mouseup", onMouseUp);
-                document.body.style.cursor = "";
-                document.body.style.userSelect = "";
+        document.body.style.cursor = horizontal ? "col-resize" : "row-resize";
+        document.body.style.userSelect = "none";
+        el.classList.add("dragging");
 
-                if (startSizes) {
-                    const currentPos = isHorizontal ? e.clientX : e.clientY;
-                    const delta = currentPos - startPos;
-                    const total = startSizes.prev + startSizes.next;
-                    const newPrev = Math.max(50, startSizes.prev + delta);
-                    const newNext = Math.max(50, total - newPrev);
-                    const ratio = newPrev / (newPrev + newNext);
+        const ratioAt = (pos) => {
+            const delta = pos - startPos;
+            const newPrev = Math.min(Math.max(MIN_CHILD_PX, prevSize + delta), total - MIN_CHILD_PX);
+            return newPrev / total;
+        };
 
-                    this.pushEvent("chassis:resize_division", {
-                        slot_id: slotId,
-                        ratio: ratio,
-                    });
-                }
+        const onMove = (ev) => {
+            const ratio = ratioAt(horizontal ? ev.clientX : ev.clientY);
+            prevEl.style.flex = `${combined * ratio}`;
+            nextEl.style.flex = `${combined * (1 - ratio)}`;
+        };
 
-                startPos = null;
-                startSizes = null;
-            };
+        const onUp = (ev) => {
+            el.removeEventListener("pointermove", onMove);
+            el.removeEventListener("pointerup", onUp);
+            el.removeEventListener("pointercancel", onUp);
+            document.body.style.cursor = "";
+            document.body.style.userSelect = "";
+            el.classList.remove("dragging");
 
-            document.addEventListener("mousemove", onMouseMove);
-            document.addEventListener("mouseup", onMouseUp);
-        });
+            this.pushEvent("chassis:resize_division", {
+                slot_id: slotId,
+                next_slot_id: nextSlotId,
+                ratio: ratioAt(horizontal ? ev.clientX : ev.clientY),
+            });
+        };
+
+        el.addEventListener("pointermove", onMove);
+        el.addEventListener("pointerup", onUp);
+        el.addEventListener("pointercancel", onUp);
+    },
+
+    destroyed() {
+        // A divider can be patched away mid-drag (the arrangement changed under it), and the body
+        // must not be left with a resize cursor and text selection disabled.
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
     },
 };
 

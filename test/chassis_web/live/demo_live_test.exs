@@ -150,17 +150,28 @@ defmodule ChassisWeb.DemoLiveTest do
   # ---------------------------------------------------------------------------
 
   describe "resize integration" do
-    test "chassis:resize_division updates flex weights", %{conn: conn} do
+    test "chassis:resize_division writes both sides of the divider", %{conn: conn} do
       {:ok, view, _html} = live(conn, "/")
 
       html =
         render_hook(view, "chassis:resize_division", %{
           "slot_id" => "editor",
+          "next_slot_id" => "preview",
           "ratio" => 0.7
         })
 
-      # The editor's container should now have flex: 0.7
-      assert html =~ "flex: 0.7"
+      # The pair shared a weight of 2 (both defaulted to 1), and a 70/30 drag splits that share:
+      # 1.4 and 0.6. Writing 0.7 alone would leave the sibling at its default 1 and render 41/59.
+      assert html =~ "flex: 1.4"
+      assert html =~ "flex: 0.6"
+    end
+
+    test "a resize_division missing a parameter costs the drag, not the session", %{conn: conn} do
+      {:ok, view, _html} = live(conn, "/")
+
+      render_hook(view, "chassis:resize_division", %{"slot_id" => "editor", "ratio" => 0.7})
+
+      assert Process.alive?(view.pid)
     end
   end
 

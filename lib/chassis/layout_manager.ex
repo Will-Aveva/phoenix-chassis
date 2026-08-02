@@ -226,23 +226,62 @@ defmodule Chassis.LayoutManager do
     {:reply, slots, state}
   end
 
+  # Weights are keyed by `{composition, Layout.weight_key(child)}` — the child subtree's two ends,
+  # not one slot id. A slot id alone names a child and every ancestor above it on the same edge, so
+  # one weight sized two different shares.
   @impl true
   def handle_call({:resize, slot_id, weight, composition}, _from, state) do
-    key = {composition, slot_id}
-    weights = Map.put(state.weights, key, weight)
-    state = %{state | weights: weights}
-    broadcast(:resize, composition, get_in(state, [:compositions, composition]))
-    {:reply, :ok, state}
+    tree = get_in(state, [:compositions, composition])
+
+    case Layout.container_key(tree, slot_id) do
+      nil ->
+        {:reply, {:error, :no_such_slot}, state}
+
+      container_key ->
+        weights = Map.put(state.weights, {composition, container_key}, weight)
+        state = %{state | weights: weights}
+        broadcast(:resize, composition, tree)
+        {:reply, :ok, state}
+    end
   end
 
+  # Both sides of a divider are written together, and their COMBINED weight is preserved.
+  #
+  # This used to write `%{first => ratio, second => 1.0 - ratio}` while the Shell defaults every
+  # other child of the division to `1`. In a division with more than two children that is not the
+  # arrangement the user dragged: at 40/60 the two dragged children render `0.4 : 0.6 : 1`, so both
+  # of them shrink against a child nobody touched. Splitting the pair's own share leaves every
+  # other sibling where it was, and reduces to the same numbers when the division has two children.
+  #
+  # The ratio is clamped rather than trusted: it arrives from a pointer drag, and a 0 or a 1 would
+  # collapse a child to nothing, leaving no divider to grab and no way back without a reset.
+  #
+  # Correction contributed back from `Will-Aveva/demo_grid`, the shell Chassis was extracted from,
+  # where this was fixed on the way in.
   @impl true
   def handle_call({:resize_pair, slot_id, next_slot_id, ratio, composition}, _from, state) do
-    key1 = {composition, slot_id}
-    key2 = {composition, next_slot_id}
-    weights = Map.merge(state.weights, %{key1 => ratio, key2 => 1.0 - ratio})
-    state = %{state | weights: weights}
-    broadcast(:resize, composition, get_in(state, [:compositions, composition]))
-    {:reply, :ok, state}
+    tree = get_in(state, [:compositions, composition])
+
+    case Layout.divider_keys(tree, slot_id, next_slot_id) do
+      nil ->
+        # No division has those two as consecutive children: the divider is gone, or was never
+        # there. Nothing to redistribute between.
+        {:reply, {:error, :no_such_divider}, state}
+
+      {left, right} ->
+        ratio = clamp_ratio(ratio)
+        key1 = {composition, left}
+        key2 = {composition, right}
+
+        combined = Map.get(state.weights, key1, 1.0) + Map.get(state.weights, key2, 1.0)
+
+        weights =
+          Map.merge(state.weights, %{key1 => combined * ratio, key2 => combined * (1.0 - ratio)})
+
+        state = %{state | weights: weights}
+        broadcast(:resize, composition, tree)
+        {:reply, :ok, state}
+    end
   end
 
   @impl true
@@ -260,6 +299,18 @@ defmodule Chassis.LayoutManager do
   # ---------------------------------------------------------------------------
   # Internal helpers
   # ---------------------------------------------------------------------------
+
+  # A child may never be dragged to nothing: at the extremes there is no divider left to grab, so
+  # the arrangement is unrecoverable without discarding the composition. A client is not the
+  # authority on that bound.
+  @min_ratio 0.05
+  @max_ratio 0.95
+
+  defp clamp_ratio(ratio) when is_number(ratio) do
+    ratio |> max(@min_ratio) |> min(@max_ratio) |> :erlang.float()
+  end
+
+  defp clamp_ratio(_ratio), do: 0.5
 
   defp ensure_composition(state, composition) do
     if get_in(state, [:compositions, composition]) == nil and

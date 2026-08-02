@@ -82,6 +82,14 @@ defmodule ChassisWeb.Components.ShellTest do
     """)
   end
 
+  # Helpers live at module level: a `defp` inside `describe` is legal but reads as scoped when it
+  # is not.
+  defp divider_ids(html) do
+    ~r/class="chassis-divider"\s+id="([^"]+)"/
+    |> Regex.scan(html)
+    |> Enum.map(fn [_, id] -> id end)
+  end
+
   # ---------------------------------------------------------------------------
   # Tests
   # ---------------------------------------------------------------------------
@@ -191,6 +199,57 @@ defmodule ChassisWeb.Components.ShellTest do
       tree = {:stack, :a, [:a]}
       html = render_shell(tree, TestProvider)
       refute html =~ "chassis-tab-icon"
+    end
+  end
+
+  describe "divider identity (INV-3.3)" do
+    test "a divider is named by both of the subtrees it separates" do
+      tree = {:division, :horizontal, [{:slot, :a}, {:slot, :b}]}
+      assert divider_ids(render_shell(tree)) == ["chassis-divider-a-b"]
+    end
+
+    test "no divider follows the last child" do
+      tree = {:division, :horizontal, [{:slot, :a}, {:slot, :b}, {:slot, :c}]}
+      assert divider_ids(render_shell(tree)) == ["chassis-divider-a-b", "chassis-divider-b-c"]
+    end
+
+    test "a nested division does not collide with its parent's divider" do
+      # The id used to be built from the child's leftmost slot alone, and `first_slot_id/1` walks
+      # into the subtree — so this tree rendered `chassis-divider-a` twice, at two levels. LiveView
+      # patches by id, so the second divider was undraggable: the resize hook mounted on the first.
+      #
+      # Reachable by dragging a pane onto the top or bottom edge of a pane that is already split,
+      # which is why `ChassisWeb.TabbedStackTest` hit it before any test named it.
+      tree =
+        {:division, :vertical,
+         [
+           {:division, :vertical, [{:slot, :a}, {:slot, :b}]},
+           {:slot, :c}
+         ]}
+
+      ids = divider_ids(render_shell(tree))
+      assert ids == Enum.uniq(ids)
+      assert ids == ["chassis-divider-a-b", "chassis-divider-a-c"]
+    end
+
+    test "a divider carries both of its sides as data attributes" do
+      # The element carries the identity, not the position: a patch is free to move DOM siblings, so
+      # the committed resize event names the two children rather than being inferred from where the
+      # divider happened to sit.
+      tree = {:division, :horizontal, [{:stack, :b, [:a, :b]}, {:slot, :c}]}
+      html = render_shell(tree)
+
+      assert html =~ ~s(data-slot-id="a")
+      assert html =~ ~s(data-next-slot-id="c")
+    end
+
+    test "a stack's active tab does not move its divider's identity" do
+      # Clicking a tab must not rename the divider beside it, or the hook is torn down and
+      # remounted mid-arrangement. The id follows the stack's FIRST tab, like the weight does.
+      tree = {:division, :horizontal, [{:stack, :a, [:a, :b]}, {:slot, :c}]}
+      focused = {:division, :horizontal, [{:stack, :b, [:a, :b]}, {:slot, :c}]}
+
+      assert divider_ids(render_shell(tree)) == divider_ids(render_shell(focused))
     end
   end
 

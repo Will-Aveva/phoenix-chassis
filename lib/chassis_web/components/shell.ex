@@ -13,6 +13,8 @@ defmodule ChassisWeb.Components.Shell do
   """
   use Phoenix.Component
 
+  alias Chassis.Layout
+
   # ---------------------------------------------------------------------------
   # Main entry point
   # ---------------------------------------------------------------------------
@@ -147,8 +149,9 @@ defmodule ChassisWeb.Components.Shell do
         <%= if idx < @child_count - 1 do %>
           <div
             class="chassis-divider"
-            id={"chassis-divider-#{first_slot_id(child)}"}
+            id={divider_id(child, Enum.at(@children, idx + 1))}
             data-slot-id={first_slot_id(child)}
+            data-next-slot-id={first_slot_id(Enum.at(@children, idx + 1))}
             data-direction={@dir_str}
             phx-hook="ChassisResize"
           >
@@ -163,16 +166,36 @@ defmodule ChassisWeb.Components.Shell do
   # Helpers
   # ---------------------------------------------------------------------------
 
+  # Keyed by the child subtree's two ends (`Layout.weight_key/1`), not by its first slot: a division
+  # and its own first child answer the same slot, so one weight used to size both — dragging an
+  # outer divider resized a nested division nobody touched.
   defp child_flex_style(child, weights) do
-    slot_id = first_slot_id(child)
-    weight = Map.get(weights, slot_id, 1)
+    weight = Map.get(weights, Layout.weight_key(child), 1)
     "flex: #{weight}; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; height: 100%;"
   end
 
-  defp first_slot_id({:slot, id}), do: id
-  defp first_slot_id({:stack, _active, [first | _]}), do: first
-  defp first_slot_id({:division, _dir, [first | _]}), do: first_slot_id(first)
-  defp first_slot_id(_), do: "unknown"
+  # One definition of "the first slot" lives in the pure core; the Shell only adds a rendering
+  # fallback, so a node that holds no slot cannot produce a bare `chassis-divider-` id.
+  defp first_slot_id(node), do: Layout.first_slot_id(node) || "unknown"
+
+  # A divider names BOTH of the subtrees it separates — in its id, and in its data attributes.
+  #
+  # `data-next-slot-id` is what lets the server redistribute the pair's own share instead of writing
+  # one weight and leaving the sibling at its default: the element carries the identity, so the
+  # server never infers which children the divider sat between from DOM position, which a patch is
+  # free to change.
+  #
+  # The id needs both for a different reason.
+  #
+  # `first_slot_id/1` walks to the leftmost slot, so a division and its own first child answer the
+  # same slot — and a division nested as a non-last child then produced the same
+  # `chassis-divider-<slot>` id at two levels of the tree. LiveView patches by id: the resize hook
+  # mounts on whichever it finds first, and dragging the other divider does nothing. The pair is
+  # unique because the two subtrees a divider sits between never share a leftmost slot (a slot
+  # appears in exactly one place).
+  defp divider_id(child, next_child) do
+    "chassis-divider-#{first_slot_id(child)}-#{first_slot_id(next_child)}"
+  end
 
   # ---------------------------------------------------------------------------
   # Dock overlay (attach zones)
